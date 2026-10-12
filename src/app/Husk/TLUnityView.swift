@@ -182,15 +182,21 @@ final class TLUnityUIView: UIView, UIKeyInput, UIEditMenuInteractionDelegate {
     private func keyboardMoved(_ note: Notification) {
         guard let window, let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
         let hiding = note.name == UIResponder.keyboardWillHideNotification
-        let mine = convert(bounds, to: window)
-        let covered = hiding ? 0 : max(0, mine.maxY - window.convert(end, from: nil).minY)
+        let keyboard = hiding ? CGRect.null : convert(window.convert(end, from: nil), from: window)
         if engine == .java {
+            let webInput = webHost.map(Self.containsFirstResponder) ?? false
+            let covered = KeyboardLayout.androidInset(bounds: bounds, keyboard: keyboard, webViewOwnsKeyboard: webInput)
             let k = contentScaleFactor, inset = windowed ? UIEdgeInsets.zero : window.safeAreaInsets
             husk_java_set_insets(Int32(inset.left * k), Int32(inset.top * k), Int32(inset.right * k), Int32(inset.bottom * k), Int32((covered * k).rounded()))
             if hiding, isFirstResponder == false { husk_java_keyboard_closed() }
             return
         }
+        let covered = KeyboardLayout.bottomOverlap(bounds: bounds, keyboard: keyboard)
         husk_flutter_set_keyboard_inset(Int32((covered * contentScaleFactor).rounded()))
+    }
+
+    private static func containsFirstResponder(_ view: UIView) -> Bool {
+        view.isFirstResponder || view.subviews.contains(where: containsFirstResponder)
     }
 
     deinit { statsTimer?.invalidate(); NotificationCenter.default.removeObserver(self) }
@@ -819,6 +825,9 @@ struct TLCocosAttemptView: View {
                 .transition(.opacity)
             }
         }
+        // The Android renderer has a fixed surface. Its views (or WKWebView) handle the
+        // keyboard internally; SwiftUI must not also move or resize the entire host.
+        .ignoresSafeArea(engine == .java ? .keyboard : [])
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         // Swipes near the edges are the game's.
