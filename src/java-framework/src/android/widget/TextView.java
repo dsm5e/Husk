@@ -582,6 +582,9 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
 
     // ---- compound drawables
     public void setCompoundDrawables(Drawable l, Drawable t, Drawable r, Drawable b) {
+        updateCompoundDrawables(l, t, r, b);
+    }
+    private void updateCompoundDrawables(Drawable l, Drawable t, Drawable r, Drawable b) {
         Drawable[] d = { l, t, r, b };
         for (Drawable o : mDrawables) if (o != null) o.setCallback(null);
         for (Drawable x : d) if (x != null) { x.setCallback(this); if (x.isStateful()) x.setState(getDrawableState()); if (mDrawableTint != null) x.setTintList(mDrawableTint); }
@@ -596,9 +599,17 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         Context c = getContext();
         setCompoundDrawablesWithIntrinsicBounds(l != 0 ? c.getDrawable(l) : null, t != 0 ? c.getDrawable(t) : null, r != 0 ? c.getDrawable(r) : null, b != 0 ? c.getDrawable(b) : null);
     }
-    public void setCompoundDrawablesRelative(Drawable s, Drawable t, Drawable e, Drawable b) { setCompoundDrawables(s, t, e, b); }
-    public void setCompoundDrawablesRelativeWithIntrinsicBounds(Drawable s, Drawable t, Drawable e, Drawable b) { setCompoundDrawablesWithIntrinsicBounds(s, t, e, b); }
-    public void setCompoundDrawablesRelativeWithIntrinsicBounds(int s, int t, int e, int b) { setCompoundDrawablesWithIntrinsicBounds(s, t, e, b); }
+    // Do not dispatch through the overridable absolute setter: tinted widgets can
+    // implement that setter by calling the relative API, as VK's TintTextView does.
+    public void setCompoundDrawablesRelative(Drawable s, Drawable t, Drawable e, Drawable b) { updateCompoundDrawables(s, t, e, b); }
+    public void setCompoundDrawablesRelativeWithIntrinsicBounds(Drawable s, Drawable t, Drawable e, Drawable b) {
+        for (Drawable d : new Drawable[] { s, t, e, b }) if (d != null) d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
+        setCompoundDrawablesRelative(s, t, e, b);
+    }
+    public void setCompoundDrawablesRelativeWithIntrinsicBounds(int s, int t, int e, int b) {
+        Context c = getContext();
+        setCompoundDrawablesRelativeWithIntrinsicBounds(s != 0 ? c.getDrawable(s) : null, t != 0 ? c.getDrawable(t) : null, e != 0 ? c.getDrawable(e) : null, b != 0 ? c.getDrawable(b) : null);
+    }
     public Drawable[] getCompoundDrawables() { return mDrawables.clone(); }
     public Drawable[] getCompoundDrawablesRelative() { return mDrawables.clone(); }
     public void setCompoundDrawablePadding(int p) { mDrawablePadding = p; relayout(); }

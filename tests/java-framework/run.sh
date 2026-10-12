@@ -21,3 +21,4 @@ PY
 "$JAVA" -cp "$TMP/classes:$TMP/stubs" husk.KeyboardDismissGestureTest
 "$JAVA" -cp "$TMP/classes:$TMP/stubs" husk.TextEditMenuTest
 "$JAVA" -cp "$TMP/classes:$TMP/stubs" husk.InputMethodsFocusTest
+"$JAVA" -cp "$TMP/classes:$TMP/stubs" TextViewDrawablesTest
