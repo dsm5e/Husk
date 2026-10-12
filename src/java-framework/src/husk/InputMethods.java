@@ -15,6 +15,8 @@ public final class InputMethods {
     private static InputConnection sConn;
     private static EditorInfo sInfo;
     private static boolean sShown;
+    private static long sShowGeneration;
+    private static final KeyboardDismissGesture sDismissGesture = new KeyboardDismissGesture();
     private InputMethods() {}
     public static View focused() { return sFocused; }
     public static boolean shown() { return sShown; }
@@ -35,11 +37,24 @@ public final class InputMethods {
         if (v == null) return false;
         if (v != sFocused) start(v);
         if (sConn == null) return false;
+        sShowGeneration++;
         sShown = true;
         Native.showKeyboard(true, sInfo != null ? sInfo.inputType : 1, sInfo != null ? sInfo.imeOptions : 0);
         return true;
     }
     public static boolean hide() { boolean was = sShown; sShown = false; Native.showKeyboard(false, 0, 0); return was; }
+    /** Run the dismissal after the app's touch/click handlers, so controls keep receiving their tap
+     * and a handler that focuses an editor or explicitly opens the keyboard takes precedence. */
+    static Runnable dismissAfterTouch(android.view.MotionEvent event) {
+        int slop = event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN && sFocused != null
+                ? android.view.ViewConfiguration.get(sFocused.getContext()).getScaledTouchSlop() : 0;
+        View editor = sDismissGesture.onTouch(event, sFocused, sShown, slop);
+        if (editor == null) return null;
+        long generation = sShowGeneration;
+        return () -> {
+            if (sShown && sFocused == editor && sShowGeneration == generation) hide();
+        };
+    }
     /** The host has text for us (an event in the input queue said so). */
     public static void deliverPending() {
         String[] items = Native.pollText();

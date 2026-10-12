@@ -324,7 +324,9 @@ public final class ViewRoot implements ViewParent {
         if (r == null) return false;
         MotionEvent l = MotionEvent.obtain(e);
         l.offsetLocation(-r.mX, -r.mY);
+        Runnable dismissKeyboard = InputMethods.dismissAfterTouch(e);
         boolean h = r.mView.dispatchTouchEvent(l);
+        if (dismissKeyboard != null) mainHandler().post(dismissKeyboard);
         if (TOUCH_LOG && am != MotionEvent.ACTION_MOVE)
             android.util.Log.d("Touch", MotionEvent.actionToString(am) + " " + l.getX() + "," + l.getY() + " -> window " + r.mView.getClass().getName() + " at " + r.mX + "," + r.mY + " " + r.mW + "x" + r.mH + ": " + (h ? "handled" : "not handled") + ", under it " + deepest(r.mView, l.getX(), l.getY()));
         if (am == MotionEvent.ACTION_UP || am == MotionEvent.ACTION_CANCEL) sTouchTarget = null;
