@@ -269,6 +269,9 @@ final class TLUnityUIView: UIView, UIKeyInput, UIEditMenuInteractionDelegate {
     private func launch(width: Int, height: Int) {
         launched = true
         launchedSize = bounds.size
+        if engine == .java, UserDefaults.standard.integer(forKey: "husk.javaThreadStackMiB") == 8 {
+            setenv("HUSK_JAVA_THREAD_STACK_MIB", "8", 1)
+        }
         let angle = (Bundle.main.privateFrameworksPath ?? "") + "/libANGLE-shared.dylib"
         let ca = Bundle.main.path(forResource: "cacert", ofType: "pem") ?? ""
         try? FileManager.default.createDirectory(atPath: dataDir, withIntermediateDirectories: true)
