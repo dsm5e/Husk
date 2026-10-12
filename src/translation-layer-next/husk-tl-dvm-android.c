@@ -391,6 +391,12 @@ void tl_javaapp_text(const char *utf8) { if (utf8 && *utf8) text_push("t", utf8)
 void tl_javaapp_text_delete(void) { text_push("d", NULL); }
 void tl_javaapp_text_action(void) { text_push("e", NULL); }
 void tl_javaapp_keyboard_closed(void) { text_push("h", NULL); }
+void tl_javaapp_edit_action(int session, int action, const char *text)
+{
+    char header[64];
+    snprintf(header, sizeof(header), "m%d:%d:", session, action);
+    text_push(header, text);
+}
 void tl_javaapp_set_insets(int l, int t, int r, int b, int ime)
 {
     A.insets[0] = l; A.insets[1] = t; A.insets[2] = r; A.insets[3] = b; A.insets[4] = ime;
@@ -413,6 +419,7 @@ NAT(N_pollText)
 }
 NAT(N_showKeyboard) { (void)self; (void)ret; if (A.cfg.show_keyboard) A.cfg.show_keyboard(a[0].i != 0, a[1].i, a[2].i); else tl_log_line("javaapp: the app asked for the keyboard (%s)", a[0].i ? "show" : "hide"); return true; }
 NAT(N_setClipboard) { (void)self; (void)ret; const char *t = tl_jni_string(a[0].l); if (A.cfg.set_clipboard) A.cfg.set_clipboard(t ? t : ""); return true; }
+NAT(N_showTextMenu) { (void)self; (void)ret; if (A.cfg.text_menu) A.cfg.text_menu(a[0].i, a[1].i, a[2].f, a[3].f); return true; }
 NAT(N_getClipboard)
 {
     (void)self; (void)a;
@@ -479,6 +486,7 @@ static const struct { const char *name, *sig; dvm_native_fn fn; } k_native[] = {
     { "showKeyboard", "(ZII)V", N_showKeyboard },
     { "setClipboard", "(Ljava/lang/String;)V", N_setClipboard },
     { "getClipboard", "()Ljava/lang/String;", N_getClipboard },
+    { "showTextMenu", "(IIFF)V", N_showTextMenu },
     { "share", "(Ljava/lang/String;)V", N_share },
     { "setOrientation", "(I)V", N_setOrientation },
     { "insets", "()[I", N_insets },

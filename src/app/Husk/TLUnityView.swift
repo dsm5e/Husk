@@ -25,7 +25,7 @@ enum TLNativeEngine {
 /// Nothing is copied or composed here. The runtime hands the layer to EGL as the game's window; the
 /// game draws and presents on its own thread. This view's jobs are the layer's size, the pause that
 /// goes with leaving the screen, and turning touches into the pixel coordinates Android reports.
-final class TLUnityUIView: UIView, UIKeyInput {
+final class TLUnityUIView: UIView, UIKeyInput, UIEditMenuInteractionDelegate {
     override class var layerClass: AnyClass { CAMetalLayer.self }
 
     /// A touch on a Java app's web page goes to the WKWebView under this view.
@@ -54,6 +54,9 @@ final class TLUnityUIView: UIView, UIKeyInput {
     var onStats: ((String) -> Void)?
     /// Active touches by UITouch identity, each given a small stable id like Android's pointer ids.
     private var pointers: [ObjectIdentifier: Int32] = [:]
+    private lazy var textEditMenu = UIEditMenuInteraction(delegate: self)
+    private var textEditSession: Int32 = 0
+    private var textEditActions: Int32 = 0
 
     /// "58 fps · 11.2 ms" in the corner, as the other screen has: frames the game finished per second, and the
     /// mean time one frame takes it. Refreshed once a second from the runtime's own counters.
@@ -107,6 +110,7 @@ final class TLUnityUIView: UIView, UIKeyInput {
             TLUnityUIView.cocosView = self
             TLUnityUIView.installGameActivityKeyboardHandler()
         } else if engine == .java {
+            addInteraction(textEditMenu)
             TLUnityUIView.cocosView = self
             TLUnityUIView.installJavaHandlers()
             // Android's back gesture: a swipe in from the left edge.
@@ -435,6 +439,16 @@ final class TLUnityUIView: UIView, UIKeyInput {
     /// A Java app's views (Husk's framework): a focused text field asks for the keyboard with Android's EditorInfo input type and
     /// IME options; the clipboard is the iPhone's; sharing opens the share sheet.
     static func installJavaHandlers() {
+        husk_java_set_text_menu { session, actions, x, y in
+            DispatchQueue.main.async {
+                guard let view = TLUnityUIView.cocosView, view.engine == .java else { return }
+                view.textEditSession = session
+                view.textEditActions = actions
+                if actions == 0 { view.textEditMenu.dismissMenu(); return }
+                let point = CGPoint(x: CGFloat(x) / view.contentScaleFactor, y: CGFloat(y) / view.contentScaleFactor)
+                view.textEditMenu.presentEditMenu(with: UIEditMenuConfiguration(identifier: NSNumber(value: session), sourcePoint: point))
+            }
+        }
         husk_java_set_host({ show, inputType, imeOptions in
             DispatchQueue.main.async {
                 guard let view = TLUnityUIView.cocosView, view.engine == .java else { return }
@@ -482,6 +496,28 @@ final class TLUnityUIView: UIView, UIKeyInput {
         }, { orientation in
             HuskLog.log("tl", "java: the app asks for orientation \(orientation)")
         })
+    }
+
+    func editMenuInteraction(_ interaction: UIEditMenuInteraction, menuFor configuration: UIEditMenuConfiguration,
+                             suggestedActions: [UIMenuElement]) -> UIMenu? {
+        let session = textEditSession
+        let definitions: [(Int32, String, String)] = [(1, "Cut", "scissors"), (2, "Copy", "doc.on.doc"),
+                                                     (4, "Paste", "doc.on.clipboard"), (8, "Select All", "selection.pin.in.out")]
+        let actions = definitions.compactMap { flag, title, icon -> UIAction? in
+            guard textEditActions & flag != 0 else { return nil }
+            return UIAction(title: NSLocalizedString(title, tableName: "Editing", comment: "Text editing action"),
+                            image: UIImage(systemName: icon)) { [weak self] _ in
+                guard let self, self.textEditSession == session else { return }
+                if flag == 4 {
+                    // Read only following the user's Paste action, on the UIKit thread.
+                    guard let text = UIPasteboard.general.string else { return }
+                    husk_java_edit_action(session, flag, text)
+                } else {
+                    husk_java_edit_action(session, flag, nil)
+                }
+            }
+        }
+        return actions.isEmpty ? nil : UIMenu(children: actions)
     }
 
     /// A Flutter app closed itself (back on its first screen): whatever shows it closes.
@@ -563,7 +599,7 @@ final class TLUnityUIView: UIView, UIKeyInput {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?)     { send(touches, phase: 1) }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?)     { send(touches, phase: 2) }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        send(touches, phase: 2)
+        send(touches, phase: engine == .java ? 3 : 2)
         pointers.removeAll()
     }
 }

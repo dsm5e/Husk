@@ -851,12 +851,29 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     public void onBeginBatchEdit() {}
     public void onEndBatchEdit() {}
     public boolean onPrivateIMECommand(String a, Bundle d) { return false; }
+    public int huskEditActions() {
+        if (!isEnabled()) return 0;
+        return husk.TextEditMenu.actions(onCheckIsTextEditor() && mText instanceof Editable,
+                isPasswordInputType(mInputType) || mTransformation instanceof PasswordTransformationMethod,
+                mText.length(), getSelectionStart(), getSelectionEnd());
+    }
+    public void huskPasteText(CharSequence text) {
+        if (isEnabled() && onCheckIsTextEditor() && mText instanceof Editable && text != null) {
+            husk.TextEditMenu.replaceSelection((Editable) mText, text);
+        }
+    }
     public boolean onTextContextMenuItem(int id) {
-        android.content.ClipboardManager cb = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         int s = Math.max(0, Math.min(getSelectionStart(), getSelectionEnd())), e = Math.max(0, Math.max(getSelectionStart(), getSelectionEnd()));
         if (id == android.R.id.selectAll) { selectAll(); return true; }
-        if (id == android.R.id.copy || id == android.R.id.cut) { if (e > s) cb.setPrimaryClip(android.content.ClipData.newPlainText(null, mText.subSequence(s, e))); if (id == android.R.id.cut && mText instanceof Editable) ((Editable) mText).delete(s, e); return true; }
-        if (id == android.R.id.paste && mText instanceof Editable) { CharSequence t = cb.getText(); if (t != null) ((Editable) mText).replace(s, e, t); return true; }
+        int action = id == android.R.id.copy ? husk.TextEditMenu.COPY : id == android.R.id.cut ? husk.TextEditMenu.CUT : id == android.R.id.paste ? husk.TextEditMenu.PASTE : 0;
+        if ((huskEditActions() & action) == 0) return false;
+        android.content.ClipboardManager cb = (android.content.ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        if (id == android.R.id.copy || id == android.R.id.cut) {
+            cb.setPrimaryClip(android.content.ClipData.newPlainText(null, mText.subSequence(s, e)));
+            if (id == android.R.id.cut) husk.TextEditMenu.replaceSelection((Editable) mText, "");
+            return true;
+        }
+        if (id == android.R.id.paste) { huskPasteText(cb.getText()); return true; }
         return false;
     }
     @Override public boolean onKeyDown(int code, KeyEvent e) {
@@ -887,9 +904,20 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         if (mTransformation != null) mTransformation.onFocusChanged(this, mText, focused, dir, prev);
         invalidate();
     }
+    private boolean mTextMenuLongPress;
+    private float mTextMenuX, mTextMenuY;
     @Override public boolean onTouchEvent(MotionEvent e) {
         int a = e.getActionMasked();
+        if (a == MotionEvent.ACTION_DOWN) {
+            mTextMenuLongPress = false;
+            mTextMenuX = e.getX(); mTextMenuY = e.getY();
+        }
         boolean superResult = super.onTouchEvent(e);
+        // Releasing a long press must not collapse the selection via the movement method.
+        if (mTextMenuLongPress && (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL)) {
+            mTextMenuLongPress = false;
+            return true;
+        }
         if ((mMovement != null || onCheckIsTextEditor()) && isEnabled() && mText instanceof Spannable && mLayout != null) {
             boolean handled = false;
             if (mMovement != null) handled |= mMovement.onTouchEvent(this, (Spannable) mText, e);
@@ -908,11 +936,17 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         return r;
     }
     @Override public boolean performLongClick() {
-        if (mText instanceof Spannable && (onCheckIsTextEditor() || mTextIsSelectable) && mText.length() > 0) {
-            if (!super.performLongClick()) { selectAll(); performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); }
-            return true;
+        if (super.performLongClick()) return true;
+        if (isEnabled() && mText instanceof Spannable && (onCheckIsTextEditor() || mTextIsSelectable)) {
+            requestFocus();
+            if (onCheckIsTextEditor()) husk.InputMethods.show(this);
+            if (!hasSelection() && mText.length() > 0) selectAll();
+            int[] location = new int[2]; getLocationOnScreen(location);
+            mTextMenuLongPress = husk.TextEditMenu.show(this, location[0] + mTextMenuX, location[1] + mTextMenuY);
+            if (mTextMenuLongPress) performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            return mTextMenuLongPress;
         }
-        return super.performLongClick();
+        return false;
     }
 
     // ---- state

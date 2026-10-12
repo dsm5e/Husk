@@ -34,6 +34,7 @@ public final class Native {
     public static native void showKeyboard(boolean show, int inputType, int imeOptions);
     public static native void setClipboard(String text);
     public static native String getClipboard();
+    public static native void showTextMenu(int session, int actions, float x, float y);
     public static native void share(String text);
     public static native void setOrientation(int androidOrientation);
     public static native int[] insets();

@@ -29,6 +29,7 @@ typedef struct tl_javaapp_config {
     void (*show_keyboard)(int show, int input_type, int ime_options);
     void (*set_clipboard)(const char *utf8);
     char *(*get_clipboard)(void);
+    void (*text_menu)(int session, int actions, float x, float y);
     void (*share)(const char *utf8);
     void (*set_orientation)(int android_orientation);
     int insets[4];                   /* left, top, right, bottom: the screen's notch and home indicator, in pixels */
@@ -47,6 +48,7 @@ void tl_javaapp_text(const char *utf8);
 void tl_javaapp_text_delete(void);
 void tl_javaapp_text_action(void);
 void tl_javaapp_keyboard_closed(void);
+void tl_javaapp_edit_action(int session, int action, const char *text);
 /* The screen's insets changed (rotation), or the keyboard now covers ime_bottom pixels of it. */
 void tl_javaapp_set_insets(int left, int top, int right, int bottom, int ime_bottom);
 unsigned long tl_javaapp_frames(void);

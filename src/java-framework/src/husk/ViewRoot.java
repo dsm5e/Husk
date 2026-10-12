@@ -297,6 +297,7 @@ public final class ViewRoot implements ViewParent {
     /** A touch in screen coordinates, to the window it is for. */
     public static boolean dispatchTouch(MotionEvent e) {
         int am = e.getActionMasked();
+        if (am == MotionEvent.ACTION_DOWN) TextEditMenu.dismiss();
         if (am == MotionEvent.ACTION_DOWN || sTouchTarget == null || sTouchTarget.mRemoved) {
             sTouchTarget = null;
             float x = e.getRawX(), y = e.getRawY();

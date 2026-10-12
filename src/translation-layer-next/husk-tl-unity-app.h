@@ -83,6 +83,9 @@ void husk_java_insert_text(const char *utf8);
 void husk_java_delete_backward(void);
 void husk_java_text_action(void);
 void husk_java_keyboard_closed(void);
+/* A native edit menu for the selected Android text view; actions: cut=1, copy=2, paste=4, select-all=8. */
+void husk_java_set_text_menu(void (*menu)(int session, int actions, float x, float y));
+void husk_java_edit_action(int session, int action, const char *text);
 void husk_java_key(int android_keycode, int down);
 /* A Java app's WebViews are WKWebViews in a container the host puts right under the app's screen view, the same size, at the screen's
    scale (surface pixels per point). fresh: a new app (1), or the running one shown on a new screen view (0: its pages move over).

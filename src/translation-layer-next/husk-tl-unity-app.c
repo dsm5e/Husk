@@ -56,6 +56,7 @@ static struct {
     void (*keyboard)(int show, int input_type, int ime_options);
     void (*set_clipboard)(const char *utf8);
     char *(*get_clipboard)(void);
+    void (*text_menu)(int session, int actions, float x, float y);
     void (*share)(const char *utf8);
     void (*orientation)(int android_orientation);
 } g_java_host;
@@ -353,6 +354,7 @@ static void *launch_thread(void *arg)
                 .density = g_java_density, .metal_layer = A.layer, .angle_egl = A.angle, .angle_gles = NULL,
                 .framework_res = fwres, .show_keyboard = g_java_host.keyboard, .set_clipboard = g_java_host.set_clipboard,
                 .get_clipboard = g_java_host.get_clipboard, .share = g_java_host.share, .set_orientation = g_java_host.orientation,
+                .text_menu = g_java_host.text_menu,
                 .insets = { g_java_insets[0], g_java_insets[1], g_java_insets[2], g_java_insets[3] }, .night_mode = g_java_night,
             };
             ok = tl_javaapp_start(&cfg);
@@ -524,6 +526,8 @@ void husk_java_insert_text(const char *utf8) { if (java_running()) tl_javaapp_te
 void husk_java_delete_backward(void) { if (java_running()) tl_javaapp_text_delete(); }
 void husk_java_text_action(void) { if (java_running()) tl_javaapp_text_action(); }
 void husk_java_keyboard_closed(void) { if (java_running()) tl_javaapp_keyboard_closed(); }
+void husk_java_set_text_menu(void (*menu)(int, int, float, float)) { g_java_host.text_menu = menu; }
+void husk_java_edit_action(int session, int action, const char *text) { if (java_running()) tl_javaapp_edit_action(session, action, text); }
 void husk_java_back(void) { if (atomic_load(&A.state) == HUSK_UNITY_RUNNING && A.engine == ENGINE_JAVA) tl_javaapp_back(); }
 void tl_web_attach(void *screen_view, void *container, float scale, bool fresh);
 bool tl_web_hit(float x, float y);

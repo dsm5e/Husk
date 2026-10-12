@@ -21,6 +21,7 @@ public final class InputMethods {
     public static View focused() { return sFocused; }
     public static boolean shown() { return sShown; }
     public static void focusChanged(View old, View now) {
+        if (old != now) TextEditMenu.dismiss();
         if (now != null && now.onCheckIsTextEditor()) { start(now); }
         else if (old != null && old == sFocused) { finish(); hide(); }
     }
@@ -62,6 +63,8 @@ public final class InputMethods {
         for (String it : items) {
             if (it.isEmpty()) continue;
             char k = it.charAt(0);
+            if (k == 'm') { TextEditMenu.deliver(it); continue; }
+            if (k == 't' || k == 'd' || k == 'e') TextEditMenu.dismiss();
             if (k == 'h') { sShown = false; continue; }           /* the host closed the keyboard */
             if (sConn == null) {
                 if (sFocused != null) { long t = android.os.SystemClock.uptimeMillis(); if (k == 'd') { sFocused.dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL, 0)); sFocused.dispatchKeyEvent(new KeyEvent(t, t, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0)); } }
