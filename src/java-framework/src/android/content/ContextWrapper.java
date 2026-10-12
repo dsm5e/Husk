@@ -43,6 +43,11 @@ public class ContextWrapper extends Context {
     @Override public void startActivity(Intent intent, android.os.Bundle o) { b().startActivity(intent, o); }
     @Override public void sendBroadcast(Intent intent) { b().sendBroadcast(intent); }
     @Override public Intent registerReceiver(BroadcastReceiver r, IntentFilter f) { return b().registerReceiver(r, f); }
+    // Forward each overload to the base. Falling back to Context's two-argument
+    // method can re-enter an app override that adds modern receiver flags.
+    @Override public Intent registerReceiver(BroadcastReceiver r, IntentFilter f, int flags) { return b().registerReceiver(r, f, flags); }
+    @Override public Intent registerReceiver(BroadcastReceiver r, IntentFilter f, String perm, android.os.Handler h) { return b().registerReceiver(r, f, perm, h); }
+    @Override public Intent registerReceiver(BroadcastReceiver r, IntentFilter f, String perm, android.os.Handler h, int flags) { return b().registerReceiver(r, f, perm, h, flags); }
     @Override public void unregisterReceiver(BroadcastReceiver r) { b().unregisterReceiver(r); }
     @Override public ComponentName startService(Intent s) { return b().startService(s); }
     @Override public boolean stopService(Intent s) { return b().stopService(s); }
