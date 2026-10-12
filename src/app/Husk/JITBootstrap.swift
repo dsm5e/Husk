@@ -228,9 +228,11 @@ enum JITBootstrap {
         URL(string: "stikjit://").map(UIApplication.shared.canOpenURL) ?? false
     }
 
-    /// TrollStore answers enable-jit on the `apple-magnifier` scheme.
+    /// TrollStore answers enable-jit on the `apple-magnifier` scheme, but Apple's
+    /// Magnifier also opens that URL. The scheme alone is not proof of TrollStore.
     static var isTrollStoreInstalled: Bool {
-        URL(string: "apple-magnifier://").map(UIApplication.shared.canOpenURL) ?? false
+        guard isInstalledWithTrollStore else { return false }
+        return URL(string: "apple-magnifier://").map(UIApplication.shared.canOpenURL) ?? false
     }
 
     /// Whether this copy of Husk was installed by TrollStore (or TrollStore Lite): it leaves a marker file next to the app in
@@ -272,6 +274,10 @@ enum JITBootstrap {
     /// this point happens in a *new* foreground pass of the app.
     @MainActor
     static func requestTrollStoreAttach() -> Bool {
+        guard isTrollStoreInstalled else {
+            HuskLog.log("jit", "TrollStore hand-off unavailable for this installation")
+            return false
+        }
         HuskLog.log("jit", "requestTrollStoreAttach() -- handing off to TrollStore")
         guard let bundleID = Bundle.main.bundleIdentifier else { return false }
         

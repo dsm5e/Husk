@@ -175,6 +175,17 @@ final class TLUnityUIView: UIView, UIKeyInput, UIEditMenuInteractionDelegate {
         if newSuperview == nil { webHost?.removeFromSuperview() }
     }
 
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        // SwiftUI reuses this renderer when the app is reopened from the library.
+        // Its WebKit sibling was removed on Close, but launch() will not run again.
+        // Restore the same host, including its live pages and gesture recognizers.
+        if let superview, let webHost {
+            webHost.frame = frame
+            superview.insertSubview(webHost, belowSubview: self)
+        }
+    }
+
     @objc private func edgeSwiped(_ g: UIScreenEdgePanGestureRecognizer) {
         if g.state == .ended, g.translation(in: self).x > 60 { if engine == .java { husk_java_back() } else { husk_flutter_back() } }
     }
