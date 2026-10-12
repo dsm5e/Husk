@@ -618,6 +618,13 @@ public class WebView extends AbsoluteLayout implements android.view.ViewTreeObse
     /** @hide */
     public void huskEvent(String[] f) {
         switch (f[0]) {
+        case "F": {
+            // Native WebKit touches and HTML autofocus bypass Android's touch dispatcher.
+            // Transfer focus explicitly so a previous EditText cannot keep its IME alive.
+            husk.ViewRoot root = husk.ViewRoot.of(getRootView());
+            if (isAttachedToWindow() && isShown() && root == husk.ViewRoot.topTouchable()) requestFocus();
+            break;
+        }
         case "s": {
             String url = fromHost(f[2]);
             mUrl = url; mProgress = 10;

@@ -211,6 +211,10 @@ static NSString *bridge_js(void)
     return @"(function(){if(window.__husk)return;try{Object.defineProperty(window,'speechSynthesis',{value:window.speechSynthesis,writable:true,configurable:true,enumerable:true})}catch(e){}"
             "window.__husk={call:function(o,m,a){var r=prompt('husk:'+JSON.stringify({o:o,m:m,a:Array.prototype.slice.call(a)}));"
             "if(r===null||r===undefined)return undefined;var v=JSON.parse(r);if(v&&v.e)throw new Error(v.e);return v.v;}};"
+            "function inputFocus(e){var t=e||document.activeElement;try{window.webkit.messageHandlers.huskInputFocus.postMessage(!!(t&&(t.matches('input,textarea')||t.isContentEditable)));}catch(x){}}"
+            "document.addEventListener('focusin',function(e){inputFocus(e.target)},true);"
+            "document.addEventListener('focusout',function(){try{window.webkit.messageHandlers.huskInputFocus.postMessage(false)}catch(x){}},true);"
+            "document.addEventListener('DOMContentLoaded',function(){inputFocus(null)});"
             "var lv=['log','debug','info','warn','error'];lv.forEach(function(k,i){var o=console[k];console[k]=function(){try{var s=Array.prototype.map.call(arguments,function(x){"
             "try{return x instanceof Error?(x.name+': '+x.message+(x.stack?' | '+String(x.stack).slice(0,600):'')):typeof x==='object'?JSON.stringify(x,function(k,v){return v instanceof Error?{name:v.name,message:v.message,stack:String(v.stack||'').slice(0,600)}:v}):String(x)}catch(e){return String(x)}}).join(' ');"
             "window.webkit.messageHandlers.huskConsole.postMessage({l:i,m:s,s:(document.currentScript&&document.currentScript.src)||location.href});}catch(e){}"
@@ -224,6 +228,7 @@ static NSString *bridge_js(void)
 @property (nonatomic) bool apiLoad;            /* the next navigation is the app's own loadUrl: not offered to shouldOverrideUrlLoading */
 @property (nonatomic, strong) NSMutableArray<NSString *> *scripts;
 @property (nonatomic) bool edgeLinked;
+@property (nonatomic) bool htmlInputFocused;
 @end
 
 @implementation HuskWeb
@@ -238,6 +243,7 @@ static NSString *bridge_js(void)
     [c setURLSchemeHandler:self forURLScheme:@"huskapp"];
     c.userContentController = [[WKUserContentController alloc] init];
     [c.userContentController addScriptMessageHandler:self name:@"huskConsole"];
+    [c.userContentController addScriptMessageHandler:self name:@"huskInputFocus"];
     [c.userContentController addUserScript:[[WKUserScript alloc] initWithSource:bridge_js() injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO]];
 #if TARGET_OS_IPHONE
     c.allowsInlineMediaPlayback = YES;
@@ -280,6 +286,7 @@ static NSString *bridge_js(void)
     [_web removeObserver:self forKeyPath:@"URL"];
     [_web stopLoading];
     [_web.configuration.userContentController removeScriptMessageHandlerForName:@"huskConsole"];
+    [_web.configuration.userContentController removeScriptMessageHandlerForName:@"huskInputFocus"];
     _web.navigationDelegate = nil;
     _web.UIDelegate = nil;
     [_web removeFromSuperview];
@@ -359,6 +366,11 @@ static NSString *bridge_js(void)
 - (void)webViewDidClose:(WKWebView *)w { emit(@"x", _wid, @[]); }
 - (void)userContentController:(WKUserContentController *)ucc didReceiveScriptMessage:(WKScriptMessage *)m
 {
+    if ([m.name isEqualToString:@"huskInputFocus"]) {
+        _htmlInputFocused = [m.body isKindOfClass:NSNumber.class] && [m.body boolValue];
+        if (_htmlInputFocused && !_web.hidden) emit(@"F", _wid, @[]);
+        return;
+    }
     NSDictionary *d = [m.body isKindOfClass:NSDictionary.class] ? m.body : @{};
     emit(@"c", _wid, @[ [NSString stringWithFormat:@"%@", d[@"l"] ?: @0], [NSString stringWithFormat:@"%@", d[@"m"] ?: @""],
                         [NSString stringWithFormat:@"%@", d[@"s"] ?: @""], [NSString stringWithFormat:@"%@", d[@"n"] ?: @0] ]);
@@ -462,8 +474,10 @@ NAT(W_frame)
 #if TARGET_OS_IPHONE
         if (g_screen && g_container && g_container.superview == g_screen.superview && !CGRectEqualToRect(g_container.frame, g_screen.frame)) g_container.frame = g_screen.frame;
 #endif
+        bool becameVisible = vis && h.web.hidden;
         h.web.frame = r;
         h.web.hidden = !vis;
+        if (becameVisible && h.htmlInputFocused) emit(@"F", wid, @[]);
         set_screen_opaque(atomic_load(&g_visible_webs) == 0);
     });
     return true;

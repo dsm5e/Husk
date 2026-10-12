@@ -22,7 +22,12 @@ public final class InputMethods {
     public static boolean shown() { return sShown; }
     public static void focusChanged(View old, View now) {
         if (old != now) TextEditMenu.dismiss();
-        if (now != null && now.onCheckIsTextEditor()) { start(now); }
+        if (now != null && now.onCheckIsTextEditor()) {
+            start(now);
+            // WebView edits through WebKit, with no Android InputConnection. Release the
+            // previous native editor instead of leaving its keyboard over the web form.
+            if (sConn == null && sShown) hide();
+        }
         else if (old != null && old == sFocused) { finish(); hide(); }
     }
     private static void start(View v) {
@@ -34,8 +39,11 @@ public final class InputMethods {
     }
     private static void finish() { if (sConn != null) sConn.finishComposingText(); sConn = null; sFocused = null; }
     public static void restart(View v) { if (v == sFocused) { sConn = null; start(v); if (sShown) Native.showKeyboard(true, sInfo.inputType, sInfo.imeOptions); } }
+    static boolean canShowFor(View v) {
+        return v != null && v.isAttachedToWindow() && v.isShown() && v.isFocused() && v.hasWindowFocus();
+    }
     public static boolean show(View v) {
-        if (v == null) return false;
+        if (!canShowFor(v)) return false;
         if (v != sFocused) start(v);
         if (sConn == null) return false;
         sShowGeneration++;
