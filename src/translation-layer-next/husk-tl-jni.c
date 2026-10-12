@@ -30,6 +30,21 @@ void tl_jni_set_trace(int level) { g_trace = level; }
 
 static uint32_t hash_str(const char *s) { uint32_t h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
 
+static bool framework_class(const char *name)
+{
+    return !strncmp(name, "android/", 8) || !strncmp(name, "java/", 5) || !strncmp(name, "javax/", 6)
+        || !strncmp(name, "dalvik/", 7) || !strncmp(name, "libcore/", 8) || !strncmp(name, "sun/", 4)
+        || !strncmp(name, "org/json/", 9) || !strncmp(name, "org/xml/", 8) || !strncmp(name, "org/w3c/", 8);
+}
+
+static bool hle_class(const char *name)
+{
+    for (int t = 0; t < g_nhle; t++)
+        for (const tl_jhle *e = g_hle[t]; e->cls; e++)
+            if (!strcmp(e->cls, name)) return true;
+    return false;
+}
+
 #define TRACE(...) do { if (g_trace >= 1) tl_log_line(__VA_ARGS__); } while (0)
 #define TRACE2(...) do { if (g_trace >= 2) tl_log_line(__VA_ARGS__); } while (0)
 
@@ -489,6 +504,14 @@ static jvalue invoke(jobj *self, tl_jmeth *m, bool nonvirtual, const jvalue *arg
         if (m->retk == 'L' && c.ret.l && ((jobj *)c.ret.l)->kind != TL_K_CLASS) tl_jni_ref(c.ret.l);
         return c.ret;
     }
+    /* An unresolved app dependency is not a framework stub. Optional libraries
+     * catch this error to select a fallback; returning null makes them believe
+     * the dependency loaded successfully and fail at the next call instead. */
+    if (tl_dvm && !m->cls->dvm && !m->cls->in_dex
+        && !framework_class(m->cls->name) && !hle_class(m->cls->name)) {
+        tl_jni_throw("java/lang/NoClassDefFoundError", m->cls->name);
+        return g_zero;
+    }
     if (!m->warned) {
         m->warned = true;
         tl_log_line("jni: UNIMPLEMENTED Java method %s.%s%s (returning zero)", m->cls->name, m->name, m->sig);
@@ -578,9 +601,7 @@ static jo jni_FindClass(void *env, const char *name)
 {
     (void)env;
     bool array = name[0] == '[';
-    bool framework = !strncmp(name, "android/", 8) || !strncmp(name, "java/", 5) || !strncmp(name, "javax/", 6)
-                  || !strncmp(name, "dalvik/", 7) || !strncmp(name, "libcore/", 8) || !strncmp(name, "sun/", 4)
-                  || !strncmp(name, "org/json/", 9) || !strncmp(name, "org/xml/", 8) || !strncmp(name, "org/w3c/", 8);
+    bool framework = framework_class(name);
     tl_jclass *known;
     pthread_mutex_lock(&g_lock); known = find_class_locked(name); pthread_mutex_unlock(&g_lock);
     if (tl_dvm && !known && !array) {
